@@ -1,14 +1,19 @@
 {
-    "name": "doomsday_clock",
-    "short_name": "doomsday_clock",
+    "name": "Doomsday Clock",
+    "short_name": "Doomsday",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0A0A0A",
+    "theme_color": "#0A0A0A",
+    "description": "Your time is your currency. A productivity clock for ADHD minds.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "256x256",
+            "type": "image/png"
+        },
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
