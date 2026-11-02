@@ -1,158 +1,113 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'palette.dart';
 
 class AppTheme {
   AppTheme._();
 
-  static ThemeData dark() {
-    final base = ThemeData.dark(useMaterial3: true);
+  static ThemeData dark() => _build(Palette.dark);
+  static ThemeData light() => _build(Palette.light);
+  static ThemeData black() => _build(Palette.black);
+
+  static ThemeData _build(Palette p) {
+    final base = p.isDark
+        ? ThemeData.dark(useMaterial3: true)
+        : ThemeData.light(useMaterial3: true);
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
+      bodyColor: p.label,
+      displayColor: p.label,
+    );
+    final fieldRadius = BorderRadius.circular(14);
 
     return base.copyWith(
-      scaffoldBackgroundColor: AppColors.background,
-      primaryColor: AppColors.danger,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.danger,
-        secondary: AppColors.warning,
-        surface: AppColors.surface,
-        error: AppColors.danger,
-        onPrimary: Colors.white,
-        onSecondary: Colors.black,
-        onSurface: AppColors.textPrimary,
+      extensions: [p],
+      scaffoldBackgroundColor: p.canvas,
+      canvasColor: p.canvas,
+      primaryColor: p.accent,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      textTheme: textTheme,
+      colorScheme: ColorScheme(
+        brightness: p.brightness,
+        primary: p.accent,
+        onPrimary: p.onAccent,
+        secondary: p.accent,
+        onSecondary: p.onAccent,
+        error: p.danger,
+        onError: p.onAccent,
+        surface: p.canvas,
+        onSurface: p.label,
       ),
-      cardColor: AppColors.card,
-      dividerColor: AppColors.border,
-      textTheme: base.textTheme.copyWith(
-        headlineMedium: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
-        titleLarge: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
-        ),
-        titleMedium: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
-        bodyMedium: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          height: 1.4,
-        ),
-        bodySmall: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-          height: 1.3,
-        ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 2,
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.danger,
-        foregroundColor: Colors.white,
-        elevation: 8,
-        shape: CircleBorder(),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.danger,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
+      cupertinoOverrideTheme: CupertinoThemeData(
+        brightness: p.brightness,
+        primaryColor: p.accent,
+        textTheme: CupertinoTextThemeData(
+          dateTimePickerTextStyle: TextStyle(
+            color: p.label,
+            fontSize: 21,
+            fontFamily: textTheme.bodyMedium?.fontFamily,
           ),
         ),
       ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.dangerBright,
-          side: const BorderSide(color: AppColors.danger, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      dividerColor: p.separator,
+      iconTheme: IconThemeData(color: p.secondaryLabel),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: p.accent,
+        selectionColor: p.accent.withValues(alpha: 0.3),
+        selectionHandleColor: p.accent,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.card,
-        hintStyle: const TextStyle(color: AppColors.textMuted),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
+        fillColor: p.fieldFill,
+        hintStyle: AppText.body.copyWith(color: p.tertiaryLabel),
+        border: OutlineInputBorder(borderRadius: fieldRadius, borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: fieldRadius, borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.danger),
+          borderRadius: fieldRadius,
+          borderSide: BorderSide(color: p.accent.withValues(alpha: 0.6), width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: p.accent,
+          textStyle: AppText.headline,
+        ),
+      ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.card,
-        contentTextStyle: const TextStyle(color: AppColors.textPrimary),
+        backgroundColor: p.glassFillStrong.withValues(alpha: 1),
+        contentTextStyle: AppText.subhead.copyWith(color: p.label),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: AppColors.border),
-        ),
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: AppColors.card,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: p.glassStroke),
         ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        modalElevation: 0,
       ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: AppColors.danger,
-        inactiveTrackColor: AppColors.cardHighlight,
-        thumbColor: AppColors.dangerBright,
-        overlayColor: AppColors.glow,
+        activeTrackColor: p.accent,
+        inactiveTrackColor: p.fieldFill,
+        thumbColor: p.isDark ? p.label : Colors.white,
+        overlayColor: p.accent.withValues(alpha: 0.12),
         trackHeight: 4,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+        valueIndicatorColor: p.accent,
+        valueIndicatorTextStyle: AppText.footnote.copyWith(color: p.onAccent),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12, elevation: 2),
       ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.dangerBright
-              : AppColors.textMuted,
-        ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.danger.withValues(alpha: 0.4)
-              : AppColors.cardHighlight,
-        ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
       ),
     );
   }

@@ -1,8 +1,12 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../models/note.dart';
 import '../services/app_state.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
 import '../widgets/flash_interval_picker.dart';
+import '../widgets/glass.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
@@ -24,6 +28,7 @@ class _NotesScreenState extends State<NotesScreen> {
   void _addNote() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    HapticFeedback.mediumImpact();
     context.read<AppState>().addNote(
           content: text,
           flashIntervalMinutes: _selectedFlashInterval,
@@ -35,183 +40,113 @@ class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final appState = context.watch<AppState>();
-    final allNotes = [...appState.pinnedNotes, ...appState.notes];
+    final pinned = appState.pinnedNotes;
+    final others = appState.notes;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('QUICK NOTES'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                '${allNotes.length}',
-                style: const TextStyle(
-                  color: AppColors.dangerBright,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildInputBar(),
-          const Divider(color: AppColors.border, height: 1),
-          Expanded(
-            child: allNotes.isEmpty
-                ? const _EmptyNotes()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: allNotes.length,
-                    itemBuilder: (context, index) {
-                      final note = allNotes[index];
-                      return _NoteCard(
-                        note: note,
-                        onDelete: () => appState.deleteNote(note.id),
-                        onTogglePin: () => appState.togglePin(note.id),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _controller,
-            minLines: 1,
-            maxLines: 3,
-            maxLength: 300,
-            decoration: const InputDecoration(
-              hintText: "Quick thought or reminder...",
-              counterText: '',
-            ),
-            onSubmitted: (_) => _addNote(),
-          ),
-          const SizedBox(height: 12),
-          Row(
+    return GlassScaffold(
+      title: 'Notes',
+      subtitle: const Text('Get it out of your head'),
+      children: [
+        GlassPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: FlashIntervalPicker(
-                  value: _selectedFlashInterval,
-                  onChanged: (v) => setState(() => _selectedFlashInterval = v),
-                ),
+              CaptureField(
+                controller: _controller,
+                hint: 'A thought, an idea, a reminder',
+                onSubmit: _addNote,
+                maxLines: 4,
+                maxLength: 300,
               ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
+              const SizedBox(height: 14),
+              Text(
+                'Resurface every',
+                style: AppText.footnote.copyWith(color: p.secondaryLabel, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              FlashIntervalPicker(
+                value: _selectedFlashInterval,
+                onChanged: (v) => setState(() => _selectedFlashInterval = v),
+              ),
+              const SizedBox(height: 14),
+              GlassButton(
+                label: 'Save note',
+                icon: CupertinoIcons.plus,
+                expand: true,
                 onPressed: _addNote,
-                icon: const Icon(Icons.add),
-                label: const Text('ADD'),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoteCard extends StatelessWidget {
-  const _NoteCard({
-    required this.note,
-    required this.onDelete,
-    required this.onTogglePin,
-  });
-
-  final dynamic note;
-  final VoidCallback onDelete;
-  final VoidCallback onTogglePin;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPinned = note.isPinned;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isPinned ? AppColors.danger.withValues(alpha: 0.5) : AppColors.border,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (isPinned) ...[
-                const Icon(Icons.push_pin, color: AppColors.dangerBright, size: 16),
-                const SizedBox(width: 6),
-              ],
-              if (note.flashIntervalMinutes != null) ...[
-                Icon(Icons.bolt, color: AppColors.warning, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  'flash ${note.flashIntervalMinutes}min',
-                  style: const TextStyle(color: AppColors.warning, fontSize: 11),
-                ),
-              ],
-              const Spacer(),
-              IconButton(
-                onPressed: onTogglePin,
-                icon: Icon(
-                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                  color: isPinned ? AppColors.dangerBright : AppColors.textMuted,
-                  size: 20,
-                ),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: AppColors.textMuted, size: 20),
-              ),
-            ],
+        const SizedBox(height: 28),
+        if (pinned.isEmpty && others.isEmpty)
+          const EmptyState(
+            icon: CupertinoIcons.lightbulb,
+            title: 'No notes yet',
+            message: 'Dump thoughts here before they slip away. Pin one with an interval and it pops up on your home screen.',
           ),
-          const SizedBox(height: 4),
-          Text(
-            note.content,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              height: 1.4,
-            ),
+        if (pinned.isNotEmpty)
+          GlassGroup(
+            header: 'Pinned',
+            children: [for (final n in pinned) _NoteRow(note: n)],
           ),
-        ],
-      ),
+        if (pinned.isNotEmpty && others.isNotEmpty) const SizedBox(height: 28),
+        if (others.isNotEmpty)
+          GlassGroup(
+            header: 'All notes',
+            children: [for (final n in others) _NoteRow(note: n)],
+          ),
+      ],
     );
   }
 }
 
-class _EmptyNotes extends StatelessWidget {
-  const _EmptyNotes();
+class _NoteRow extends StatelessWidget {
+  const _NoteRow({required this.note});
+
+  final QuickNote note;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
+    final p = context.palette;
+    final appState = context.read<AppState>();
+    final interval = note.flashIntervalMinutes;
+
+    return GlassRow(
+      title: Text(note.content),
+      subtitle: interval == null
+          ? null
+          : Row(
+              children: [
+                Icon(CupertinoIcons.bolt_fill, size: 12, color: p.warning),
+                const SizedBox(width: 4),
+                Text('Every ${interval >= 60 ? '${interval ~/ 60}h' : '${interval}m'}'),
+              ],
+            ),
+      trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.lightbulb_outline, color: AppColors.textMuted, size: 48),
-          const SizedBox(height: 12),
-          Text(
-            'Your brain is full of thoughts.\nDump them here before you forget.\n\nPin a note and set a flash interval\nto keep it on your face.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 13,
-              height: 1.5,
+          IconButton(
+            tooltip: note.isPinned ? 'Unpin' : 'Pin',
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              appState.togglePin(note.id);
+            },
+            icon: Icon(
+              note.isPinned ? CupertinoIcons.pin_fill : CupertinoIcons.pin,
+              size: 20,
+              color: note.isPinned ? p.accent : p.tertiaryLabel,
             ),
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              appState.deleteNote(note.id);
+            },
+            icon: Icon(CupertinoIcons.trash, size: 20, color: p.tertiaryLabel),
           ),
         ],
       ),

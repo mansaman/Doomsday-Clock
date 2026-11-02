@@ -1,11 +1,22 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/app_state.dart';
 import 'theme/app_theme.dart';
+import 'theme/palette.dart';
+import 'widgets/glass.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+  ));
   runApp(const DoomsdayClockApp());
 }
 
@@ -16,11 +27,26 @@ class DoomsdayClockApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
-      child: MaterialApp(
-        title: 'Doomsday Clock',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark(),
-        home: const RootGate(),
+      child: Consumer<AppState>(
+        builder: (context, appState, _) {
+          ThemeData theme;
+          switch (appState.themeMode) {
+            case 1:
+              theme = AppTheme.light();
+              break;
+            case 2:
+              theme = AppTheme.black();
+              break;
+            default:
+              theme = AppTheme.dark();
+          }
+          return MaterialApp(
+            title: 'Doomsday Clock',
+            debugShowCheckedModeBanner: false,
+            theme: theme,
+            home: const RootGate(),
+          );
+        },
       ),
     );
   }
@@ -33,8 +59,7 @@ class RootGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     if (!appState.isReady) {
-      // While profile loads
-      return const _SplashScreen();
+      return const _CinematicSplash();
     }
     final profile = appState.profile;
     if (profile == null || !profile.isOnboarded) {
@@ -44,29 +69,33 @@ class RootGate extends StatelessWidget {
   }
 }
 
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+class _CinematicSplash extends StatelessWidget {
+  const _CinematicSplash();
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.hourglass_bottom, color: Colors.redAccent, size: 56),
-            SizedBox(height: 16),
-            Text(
-              'DOOMSDAY CLOCK',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 3,
-              ),
-            ),
-          ],
-        ),
+    final p = context.palette;
+    return Scaffold(
+      backgroundColor: p.canvas,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: GlassBackdrop(urgencyOverride: 0)),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(CupertinoIcons.hourglass, color: p.label, size: 44),
+                const SizedBox(height: 16),
+                Text('Doomsday Clock', style: AppText.title2.copyWith(color: p.label)),
+                const SizedBox(height: 4),
+                Text(
+                  'Your time is your currency',
+                  style: AppText.subhead.copyWith(color: p.secondaryLabel),
+                ),
+              ],
+            ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOutQuart),
+          ),
+        ],
       ),
     );
   }

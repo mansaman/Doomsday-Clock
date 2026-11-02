@@ -1,7 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../models/task.dart';
 import '../services/app_state.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -12,15 +16,9 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   final TextEditingController _controller = TextEditingController();
-  int? _allocatedMinutes;
+  int _allocatedMinutes = 0;
 
-  static const _allocOptions = <(int, String)>[
-    (15, '15m'),
-    (30, '30m'),
-    (60, '1h'),
-    (120, '2h'),
-    (240, '4h'),
-  ];
+  static const _allocOptions = {0: 'None', 15: '15m', 30: '30m', 60: '1h', 120: '2h', 240: '4h'};
 
   @override
   void dispose() {
@@ -33,278 +31,160 @@ class _TasksScreenState extends State<TasksScreen> {
     if (name.isEmpty) return;
     context.read<AppState>().addTask(
           name: name,
-          allocatedMinutes: _allocatedMinutes,
+          allocatedMinutes: _allocatedMinutes == 0 ? null : _allocatedMinutes,
         );
+    HapticFeedback.mediumImpact();
     _controller.clear();
-    setState(() => _allocatedMinutes = null);
+    setState(() => _allocatedMinutes = 0);
     FocusScope.of(context).unfocus();
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final appState = context.watch<AppState>();
     final active = appState.activeTasks;
     final done = appState.tasks.where((t) => t.isCompleted).toList();
+    final full = active.length >= 3;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TASKS'),
-        actions: [
-          if (active.length < 3)
-            IconButton(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (_) => const _FocusLimitDialog(),
-              ),
-              icon: const Icon(Icons.info_outline, color: AppColors.textMuted),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                '${active.length}/3',
-                style: const TextStyle(
-                  color: AppColors.dangerBright,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildInputBar(),
-          const Divider(color: AppColors.border, height: 1),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (active.isEmpty) const _EmptyTasks(),
-                ...active.map((task) => _TaskCard(
-                      task: task,
-                      onComplete: () => appState.toggleTaskComplete(task.id),
-                      onDelete: () => appState.deleteTask(task.id),
-                    )),
-                if (done.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  Text(
-                    'COMPLETED',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...done.map((task) => _TaskCard(
-                        task: task,
-                        onComplete: () => appState.toggleTaskComplete(task.id),
-                        onDelete: () => appState.deleteTask(task.id),
-                      )),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _controller,
-            decoration: const InputDecoration(
-              hintText: 'What must get done?',
-              prefixIcon: Icon(Icons.task_alt, color: AppColors.textMuted, size: 20),
-            ),
-            onSubmitted: (_) => _addTask(),
-          ),
-          const SizedBox(height: 12),
-          Row(
+    return GlassScaffold(
+      title: 'Tasks',
+      subtitle: Text('${active.length} of 3 in focus'),
+      children: [
+        GlassPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Text(
-                  'LIFE COST:',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+              CaptureField(
+                controller: _controller,
+                hint: full ? 'Finish one to add another' : 'What needs doing?',
+                onSubmit: _addTask,
               ),
-              ..._allocOptions.map((option) {
-                final selected = _allocatedMinutes == option.$1;
-                return Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: ChoiceChip(
-                    label: Text(option.$2),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _allocatedMinutes = option.$1),
-                    selectedColor: AppColors.danger,
-                    backgroundColor: AppColors.cardHighlight,
-                    showCheckmark: false,
-                    labelStyle: TextStyle(
-                      color: selected ? Colors.white : AppColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                );
-              }),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: _addTask,
-                icon: const Icon(Icons.add),
-                label: const Text('ADD'),
+              const SizedBox(height: 14),
+              Text(
+                'Time budget',
+                style: AppText.footnote.copyWith(color: p.secondaryLabel, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              SegmentedPicker<int>(
+                value: _allocatedMinutes,
+                options: _allocOptions,
+                onChanged: (v) => setState(() => _allocatedMinutes = v),
+              ),
+              const SizedBox(height: 14),
+              GlassButton(
+                label: 'Add task',
+                icon: CupertinoIcons.plus,
+                expand: true,
+                onPressed: full ? null : _addTask,
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({
-    required this.task,
-    required this.onComplete,
-    required this.onDelete,
-  });
-
-  final dynamic task;
-  final VoidCallback onComplete;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final alloc = task.allocatedMinutes;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: task.isCompleted ? AppColors.border : AppColors.danger.withValues(alpha: 0.4),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        const SizedBox(height: 28),
+        if (active.isEmpty)
+          const EmptyState(
+            icon: CupertinoIcons.checkmark_circle,
+            title: 'Nothing in focus',
+            message: 'Add up to three tasks. Give each a time budget to see what it costs.',
+          )
+        else
+          GlassGroup(
+            header: 'In focus',
+            footer: 'Three at a time keeps working memory clear. Finish or remove one to add more.',
             children: [
-              Icon(
-                task.isCompleted
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked,
-                color: task.isCompleted ? AppColors.success : AppColors.dangerBright,
-                size: 24,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  task.name,
-                  style: TextStyle(
-                    color: task.isCompleted ? AppColors.textMuted : AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
-              ),
+              for (final t in active) _TaskRow(task: t),
             ],
           ),
-          if (alloc != null && !task.isCompleted) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(Icons.hourglass_bottom, color: AppColors.warning, size: 14),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    _lifeCostText(context, alloc),
-                    style: const TextStyle(color: AppColors.warning, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  String _lifeCostText(BuildContext context, int minutes) {
-    final calc = context.watch<AppState>().lifeCalculator;
-    String extra = '$minutes min of life';
-    if (calc != null) {
-      final pct = calc.lifeCostPercentage(minutes);
-      extra = '$extra = ${pct.toStringAsFixed(pct < 0.01 ? 3 : 2)}% of your life bank';
-    }
-    return 'This task drains $extra';
-  }
-}
-
-class _EmptyTasks extends StatelessWidget {
-  const _EmptyTasks();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.checklist, color: AppColors.textMuted, size: 48),
-          const SizedBox(height: 12),
-          Text(
-            'No active tasks.\nAdd a task and assign its life cost.\nKeep it to 3 so you can focus.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 13,
-              height: 1.5,
-            ),
+        if (done.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          GlassGroup(
+            header: 'Done',
+            children: [
+              for (final t in done) _TaskRow(task: t),
+            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FocusLimitDialog extends StatelessWidget {
-  const _FocusLimitDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('WHY 3 TASKS?'),
-      content: const Text(
-        'ADHD brains get overwhelmed by too many options.\n\n'
-        'Reality check: your working memory holds only 1-3 things at once.\n\n'
-        'Only 3 active tasks at a time. Complete or delete one to add another.',
-        textAlign: TextAlign.center,
-      ),
-      actions: [
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('GOT IT'),
-        ),
       ],
+    );
+  }
+}
+
+class _TaskRow extends StatelessWidget {
+  const _TaskRow({required this.task});
+
+  final WorkTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final appState = context.read<AppState>();
+    final calc = context.watch<AppState>().lifeCalculator;
+    final alloc = task.allocatedMinutes;
+
+    String? cost;
+    if (alloc != null && !task.isCompleted) {
+      cost = 'Budget ${formatHm(Duration(minutes: alloc))}';
+      if (calc != null) {
+        final pct = calc.lifeCostPercentage(alloc);
+        cost = '$cost · ${pct.toStringAsFixed(pct < 0.01 ? 4 : 2)}% of your life bank';
+      }
+    }
+
+    return GlassRow(
+      leading: Semantics(
+        button: true,
+        checked: task.isCompleted,
+        label: task.isCompleted ? 'Mark as not done' : 'Mark as done',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            appState.toggleTaskComplete(task.id);
+          },
+          child: SizedBox(
+            width: 30,
+            height: 44,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  task.isCompleted ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+                  key: ValueKey(task.isCompleted),
+                  size: 26,
+                  color: task.isCompleted ? p.success : p.tertiaryLabel,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      title: Text(
+        task.name,
+        style: task.isCompleted
+            ? TextStyle(color: p.tertiaryLabel, decoration: TextDecoration.lineThrough)
+            : null,
+      ),
+      subtitle: cost == null ? null : Text(cost),
+      trailing: _DeleteButton(onPressed: () {
+        HapticFeedback.lightImpact();
+        appState.deleteTask(task.id);
+      }),
+    );
+  }
+}
+
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: 'Delete',
+      icon: Icon(CupertinoIcons.trash, size: 20, color: p.tertiaryLabel),
     );
   }
 }

@@ -1,7 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 import '../services/app_state.dart';
+import '../services/life_expectancy_predictor.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -13,220 +17,18 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   DateTime _dateOfBirth = DateTime(2000, 1, 1);
   int _lifeExpectancy = 80;
+
+  // Predictor inputs
+  String _gender = 'unknown';
+  bool _smoker = false;
+  bool _exercisesRegularly = true;
+  bool _healthyDiet = true;
+  bool _managesStress = false;
+
   int _step = 0;
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(),
-              if (_step == 0) _buildIntro()
-              else if (_step == 1) _buildDobPicker()
-              else if (_step == 2) _buildExpectancyPicker()
-              else _buildCurrencyIntro(),
-              const Spacer(),
-              _buildFooter(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIntro() {
-    return Column(
-      children: [
-        const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 64),
-        const SizedBox(height: 24),
-        Text(
-          'DOOMSDAY\nCLOCK',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Like the movie IN TIME, your life is a clock\nthat runs out. And like the movie:\n'
-          'your time is the only currency that matters.\n\n'
-          'Every second you waste is money you\nwill never earn back.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 40),
-      ],
-    );
-  }
-
-  Widget _buildDobPicker() {
-    return Column(
-      children: [
-        Text(
-          'WHEN WERE YOU BORN?',
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 3,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          '${_dateOfBirth.day}/${_dateOfBirth.month}/${_dateOfBirth.year}',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: _dateOfBirth,
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now().subtract(const Duration(days: 1)),
-            );
-            if (picked != null) {
-              setState(() => _dateOfBirth = picked);
-            }
-          },
-          icon: const Icon(Icons.calendar_today),
-          label: const Text('SELECT DATE'),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Using your birth date, we calculate exactly\nhow much time you have left.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 12,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExpectancyPicker() {
-    return Column(
-      children: [
-        Text(
-          'HOW LONG WILL YOU LIVE?',
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 3,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          '$_lifeExpectancy YEARS',
-          style: const TextStyle(
-            color: AppColors.dangerBright,
-            fontSize: 36,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Slider(
-          value: _lifeExpectancy.toDouble(),
-          min: 50,
-          max: 100,
-          divisions: 50,
-          label: '$_lifeExpectancy years',
-          onChanged: (v) => setState(() => _lifeExpectancy = v.round()),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'This is your estimated lifespan. Every day you\nwatch it drain away. Set it honestly.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 12,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCurrencyIntro() {
-    return Column(
-      children: [
-        const Icon(Icons.account_balance_wallet, color: AppColors.danger, size: 56),
-        const SizedBox(height: 24),
-        Text(
-          'YOUR TIME IS\nYOUR CURRENCY',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Every day, you pay for life with your time.\n\n'
-          '8h of sleep. 9h at work. 2h commuting.\nThat money is already gone before you wake.\n\n'
-          'We calculate exactly how much FREE TIME\nyou own today.\n'
-          'And we watch every second of it drain away.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-            height: 1.6,
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        if (_step > 0)
-          TextButton(
-            onPressed: () => setState(() => _step--),
-            child: Text(
-              'BACK',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12,
-                letterSpacing: 2,
-              ),
-            ),
-          ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _next,
-            child: Text(_step == 3 ? 'BEGIN' : 'CONTINUE'),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _next() {
-    if (_step < 3) {
+    if (_step < 4) {
       setState(() => _step++);
     } else {
       final appState = context.read<AppState>();
@@ -235,5 +37,315 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         lifeExpectancyYears: _lifeExpectancy,
       );
     }
+  }
+
+  void _back() {
+    if (_step > 0) {
+      setState(() => _step--);
+    }
+  }
+
+  void _recalculate() {
+    final now = DateTime.now();
+    final age = now.year - _dateOfBirth.year -
+        (now.month < _dateOfBirth.month || (now.month == _dateOfBirth.month && now.day < _dateOfBirth.day) ? 1 : 0);
+    _lifeExpectancy = LifeExpectancyPredictor.predict(
+      age: age,
+      gender: _gender,
+      smoker: _smoker,
+      exercisesRegularly: _exercisesRegularly,
+      healthyDiet: _healthyDiet,
+      managesStress: _managesStress,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Scaffold(
+      backgroundColor: p.canvas,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: GlassBackdrop(urgencyOverride: 0)),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildProgress(p),
+                      Expanded(
+                        child: Center(
+                          child: SingleChildScrollView(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              switchInCurve: Curves.easeOutQuart,
+                              switchOutCurve: Curves.easeOutQuart,
+                              transitionBuilder: (child, animation) => FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.04, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                              child: KeyedSubtree(
+                                key: ValueKey<int>(_step),
+                                child: _buildStepContent(p),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      _buildFooter(p),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgress(Palette p) {
+    return Semantics(
+      label: 'Step ${_step + 1} of 5',
+      child: Row(
+        children: List.generate(5, (index) {
+          return Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutQuart,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              height: 4,
+              decoration: BoxDecoration(
+                color: index <= _step ? p.label : p.fieldFill,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildStepContent(Palette p) {
+    switch (_step) {
+      case 0: return _buildIntro(p);
+      case 1: return _buildDobPicker(p);
+      case 2: return _buildGenderPicker(p);
+      case 3: return _buildLifestylePicker(p);
+      default: return _buildResult(p);
+    }
+  }
+
+  Widget _title(Palette p, String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppText.largeTitle.copyWith(color: p.label)),
+          const SizedBox(height: 8),
+          Text(subtitle, style: AppText.callout.copyWith(color: p.secondaryLabel)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntro(Palette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 20),
+          child: Icon(CupertinoIcons.hourglass, size: 48, color: p.label),
+        ),
+        _title(
+          p,
+          'Your time is\nyour currency',
+          'Sleep, work and the commute are paid before you wake. '
+              'Doomsday Clock shows the free time you actually own today, '
+              'so you can choose what to spend it on.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDobPicker(Palette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _title(p, 'When were you born?', 'Used to estimate your life bank. It stays on this device.'),
+        GlassPanel(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SizedBox(
+            height: 200,
+            child: CupertinoTheme(
+              data: CupertinoThemeData(
+                brightness: p.brightness,
+                textTheme: CupertinoTextThemeData(
+                  dateTimePickerTextStyle: AppText.title3.copyWith(color: p.label),
+                ),
+              ),
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: _dateOfBirth,
+                minimumDate: DateTime(1900),
+                maximumDate: DateTime.now(),
+                onDateTimeChanged: (DateTime newDate) {
+                  setState(() {
+                    _dateOfBirth = newDate;
+                    _recalculate();
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderPicker(Palette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _title(p, 'Biological sex', 'Life expectancy tables differ by sex. Skip it if you prefer.'),
+        GlassGroup(
+          children: [
+            _genderOption(p, 'female', 'Female'),
+            _genderOption(p, 'male', 'Male'),
+            _genderOption(p, 'unknown', 'Prefer not to say'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _genderOption(Palette p, String value, String label) {
+    final selected = _gender == value;
+    return GlassRow(
+      title: Text(label),
+      trailing: selected
+          ? Icon(CupertinoIcons.checkmark_alt, color: p.accent, size: 22)
+          : const SizedBox(width: 22),
+      onTap: () {
+        setState(() {
+          _gender = value;
+          _recalculate();
+        });
+      },
+    );
+  }
+
+  Widget _buildLifestylePicker(Palette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _title(p, 'Your habits', 'A rough adjustment. You can change the result later.'),
+        GlassGroup(
+          children: [
+            _lifestyleToggle(p, 'Smoke', _smoker, (v) => _smoker = v),
+            _lifestyleToggle(p, 'Exercise 3+ times a week', _exercisesRegularly, (v) => _exercisesRegularly = v),
+            _lifestyleToggle(p, 'Eat mostly healthy', _healthyDiet, (v) => _healthyDiet = v),
+            _lifestyleToggle(p, 'Manage stress well', _managesStress, (v) => _managesStress = v),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _lifestyleToggle(Palette p, String label, bool value, ValueChanged<bool> set) {
+    return GlassRow(
+      title: Text(label),
+      trailing: CupertinoSwitch(
+        value: value,
+        activeTrackColor: p.accent,
+        onChanged: (v) => setState(() {
+          set(v);
+          _recalculate();
+        }),
+      ),
+    );
+  }
+
+  Widget _buildResult(Palette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _title(p, 'Your life bank', _lifeSummary()),
+        GlassPanel(
+          radius: 28,
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          child: Column(
+            children: [
+              Text(
+                '$_lifeExpectancy',
+                style: TextStyle(
+                  fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                  fontSize: 88,
+                  fontWeight: FontWeight.w200,
+                  letterSpacing: -3,
+                  height: 1.05,
+                  color: p.label,
+                  fontFeatures: AppText.tabular,
+                ),
+              ),
+              Text('estimated years', style: AppText.subhead.copyWith(color: p.secondaryLabel)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: GlassButton(
+            label: 'Adjust habits',
+            style: GlassButtonStyle.plain,
+            compact: true,
+            onPressed: () => setState(() => _step = 3),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _lifeSummary() {
+    final now = DateTime.now();
+    final age = now.year - _dateOfBirth.year -
+        (now.month < _dateOfBirth.month || (now.month == _dateOfBirth.month && now.day < _dateOfBirth.day) ? 1 : 0);
+    final yearsLeft = _lifeExpectancy - age;
+    if (yearsLeft <= 0) return 'By this estimate you are living on bonus time. Make it count.';
+    final daysLeft = yearsLeft * 365;
+    return 'Roughly ${NumberFormat.decimalPattern().format(daysLeft)} days left. You can adjust this in Settings.';
+  }
+
+  Widget _buildFooter(Palette p) {
+    return Row(
+      children: [
+        if (_step > 0) ...[
+          GlassButton(
+            label: 'Back',
+            style: GlassButtonStyle.tinted,
+            color: p.secondaryLabel,
+            onPressed: _back,
+          ),
+          const SizedBox(width: 12),
+        ],
+        Expanded(
+          child: GlassButton(
+            label: _step == 4 ? 'Start' : 'Continue',
+            expand: true,
+            onPressed: _next,
+          ),
+        ),
+      ],
+    );
   }
 }

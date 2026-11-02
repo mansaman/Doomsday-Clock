@@ -31,6 +31,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('DOOMSDAY CLOCK'), findsOneWidget);
+    expect(find.text('Doomsday Clock'), findsOneWidget);
+
+    // Unmount so the splash fade and backdrop refresh timers are disposed.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

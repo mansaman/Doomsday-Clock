@@ -45,12 +45,113 @@ class AppState extends ChangeNotifier {
 
   bool _isInitialized = false;
 
+  // Theme mode: 0 = dark, 1 = light, 2 = AMOLED
+  int _themeMode = 0;
+  int get themeMode => _themeMode;
+
+  // Streak tracking
+  int _currentStreak = 0;
+  int get currentStreak => _currentStreak;
+  int _longestStreak = 0;
+  int get longestStreak => _longestStreak;
+  String _lastActiveDate = '';
+  String get lastActiveDate => _lastActiveDate;
+
+  // Daily quote
+  String _todaysQuote = '';
+  String get todaysQuote => _todaysQuote;
+  String _todaysQuoteAuthor = '';
+  String get todaysQuoteAuthor => _todaysQuoteAuthor;
+
+  static const List<Map<String, String>> _quotes = [
+    {'text': 'You have approximately 4,000 weeks. This is not a metaphor.', 'author': 'Oliver Burkeman'},
+    {'text': 'The average human lifespan is absurdly, insultingly brief. Assuming you live to be eighty, you have just over four thousand weeks.', 'author': 'Oliver Burkeman'},
+    {'text': 'Time is the most valuable thing a man can spend.', 'author': 'Theophrastus'},
+    {'text': 'Your time is finite. Do not waste it living someone else\'s life.', 'author': 'Steve Jobs'},
+    {'text': 'We are all dying. Some of us just have a head start.', 'author': 'Unknown'},
+    {'text': 'Every second you waste is a second you will never get back.', 'author': 'Unknown'},
+    {'text': 'The trouble is, you think you have time.', 'author': 'Jack Kornfield'},
+    {'text': 'Life is not a problem to be solved, but a reality to be experienced.', 'author': 'Søren Kierkegaard'},
+    {'text': 'Time flies over us, but leaves its shadow behind.', 'author': 'Nathaniel Hawthorne'},
+    {'text': 'Lost time is never found again.', 'author': 'Benjamin Franklin'},
+    {'text': 'The two most powerful warriors are patience and time.', 'author': 'Leo Tolstoy'},
+    {'text': 'Time you enjoy wasting is not wasted time.', 'author': 'Marthe Troly-Curtin'},
+    {'text': 'You may delay, but time will not.', 'author': 'Benjamin Franklin'},
+    {'text': 'Time is what we want most, but what we use worst.', 'author': 'William Penn'},
+    {'text': 'The future is something which everyone reaches at the rate of sixty minutes an hour.', 'author': 'C.S. Lewis'},
+    {'text': 'Don\'t count the days, make the days count.', 'author': 'Muhammad Ali'},
+    {'text': 'Time is the coin of your life. It is the only coin you have.', 'author': 'Carl Sandburg'},
+    {'text': 'In three words I can sum up life: it goes on.', 'author': 'Robert Frost'},
+    {'text': 'The worst saving is saving time.', 'author': 'Baltasar Gracian'},
+    {'text': 'Time is the most undefinable yet paradoxical of things; without it, nothing can be done.', 'author': 'Cotton Mather'},
+    {'text': 'A year from now you will wish you had started today.', 'author': 'Karen Lamb'},
+    {'text': 'The time you enjoy wasting is not wasted time at all.', 'author': 'Marthe Troly-Curtin'},
+    {'text': 'Don\'t wait. The time will never be just right.', 'author': 'Napoleon Hill'},
+    {'text': 'Time is what prevents everything from happening at once.', 'author': 'John Archibald Wheeler'},
+    {'text': 'If you love life, don\'t waste time, for time is what life is made up of.', 'author': 'Bruce Lee'},
+    {'text': 'All we have to decide is what to do with the time that is given us.', 'author': 'J.R.R. Tolkien'},
+    {'text': 'Realize deeply that the present moment is all you ever have.', 'author': 'Eckhart Tolle'},
+    {'text': 'Time moves slowly, but passes quickly.', 'author': 'Alice Walker'},
+    {'text': 'It is not that we have a short time to live, but that we waste a good deal of it.', 'author': 'Seneca'},
+    {'text': 'The greatest浪费 of time is between impulse and action.', 'author': 'Unknown'},
+  ];
+
   Future<void> _init() async {
     _profile = await LocalStorage.loadProfile();
     await _loadCollections();
+    await _loadPreferences();
     _recomputeLife();
+    _pickTodaysQuote();
+    _updateStreak();
     _isInitialized = true;
     notifyListeners();
+  }
+
+  void _pickTodaysQuote() {
+    final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year)).inDays;
+    final index = dayOfYear % _quotes.length;
+    _todaysQuote = _quotes[index]['text']!;
+    _todaysQuoteAuthor = _quotes[index]['author']!;
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    _themeMode = prefs.getInt('theme_mode') ?? 0;
+    _currentStreak = prefs.getInt('current_streak') ?? 0;
+    _longestStreak = prefs.getInt('longest_streak') ?? 0;
+    _lastActiveDate = prefs.getString('last_active_date') ?? '';
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('theme_mode', _themeMode);
+    await prefs.setInt('current_streak', _currentStreak);
+    await prefs.setInt('longest_streak', _longestStreak);
+    await prefs.setString('last_active_date', _lastActiveDate);
+  }
+
+  void _updateStreak() {
+    final today = DateTime.now();
+    final todayStr = '${today.year}-${today.month}-${today.day}';
+
+    if (_lastActiveDate == todayStr) return;
+
+    final yesterday = today.subtract(const Duration(days: 1));
+    final yesterdayStr = '${yesterday.year}-${yesterday.month}-${yesterday.day}';
+
+    if (_lastActiveDate == yesterdayStr) {
+      _currentStreak++;
+    } else if (_lastActiveDate.isEmpty) {
+      _currentStreak = 1;
+    } else {
+      _currentStreak = 1;
+    }
+
+    _lastActiveDate = todayStr;
+    if (_currentStreak > _longestStreak) {
+      _longestStreak = _currentStreak;
+    }
+    _savePreferences();
   }
 
   Future<void> _loadCollections() async {
@@ -83,19 +184,19 @@ class AppState extends ChangeNotifier {
         id: const Uuid().v4(),
         name: 'Sleep',
         hoursPerDay: 8,
-        icon: '🌙',
+        icon: 'S',
       ),
       TimeAllocation(
         id: const Uuid().v4(),
         name: 'Job',
         hoursPerDay: 9,
-        icon: '💼',
+        icon: 'J',
       ),
       TimeAllocation(
         id: const Uuid().v4(),
         name: 'Commute',
         hoursPerDay: 1.5,
-        icon: '🚗',
+        icon: 'C',
       ),
     ]);
   }
@@ -115,6 +216,12 @@ class AppState extends ChangeNotifier {
         allocations: List.of(_allocations),
       );
     }
+  }
+
+  Future<void> setThemeMode(int mode) async {
+    _themeMode = mode;
+    await _savePreferences();
+    notifyListeners();
   }
 
   Future<void> completeOnboarding({

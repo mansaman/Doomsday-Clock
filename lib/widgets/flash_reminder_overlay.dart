@@ -1,33 +1,29 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../models/note.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import 'glass.dart';
 
-/// Shows pinned notes as flashing overlays that appear at their configured
-/// flash intervals. Designed to be placed on the home screen.
+/// Shows how many pinned reminders are armed, and swaps to a highlighted
+/// glass card when one of them comes due.
 class FlashReminderOverlay extends StatefulWidget {
-  const FlashReminderOverlay({super.key, required this.notes});
+  const FlashReminderOverlay({super.key, required this.notes, this.onOpen});
 
   final List<QuickNote> notes;
+  final VoidCallback? onOpen;
 
   @override
   State<FlashReminderOverlay> createState() => _FlashReminderOverlayState();
 }
 
-class _FlashReminderOverlayState extends State<FlashReminderOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  bool _visible = false;
+class _FlashReminderOverlayState extends State<FlashReminderOverlay> {
   QuickNote? _currentNote;
   final List<Timer> _timers = [];
+  Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
     _scheduleFlashing();
   }
 
@@ -44,29 +40,16 @@ class _FlashReminderOverlayState extends State<FlashReminderOverlay>
     for (final note in widget.notes) {
       final interval = note.flashIntervalMinutes;
       if (interval == null || interval <= 0) continue;
-      final timer = Timer.periodic(
-        Duration(minutes: interval),
-        (_) => _showFlash(note),
-      );
-      _timers.add(timer);
+      _timers.add(Timer.periodic(Duration(minutes: interval), (_) => _showFlash(note)));
     }
   }
 
   void _showFlash(QuickNote note) {
-    if (!mounted || _visible) return;
-    setState(() {
-      _currentNote = note;
-      _visible = true;
-    });
-    _controller.forward(from: 0);
-    Timer(const Duration(seconds: 5), () {
-      if (mounted) _hideFlash();
-    });
-  }
-
-  void _hideFlash() {
-    _controller.reverse().then((_) {
-      if (mounted) setState(() => _visible = false);
+    if (!mounted || _currentNote != null) return;
+    setState(() => _currentNote = note);
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _currentNote = null);
     });
   }
 
@@ -80,73 +63,63 @@ class _FlashReminderOverlayState extends State<FlashReminderOverlay>
   @override
   void dispose() {
     _cancelTimers();
-    _controller.dispose();
+    _hideTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_visible || _currentNote == null) {
-      return Column(
-        children: [
-          Icon(Icons.notifications_active_outlined, color: AppColors.textMuted, size: 26),
-          const SizedBox(height: 8),
-          Text(
-            '${widget.notes.length} reminder${widget.notes.length == 1 ? '' : 's'} armed\nflashing on screen at intervals',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-        ],
-      );
-    }
+    final p = context.palette;
+    final note = _currentNote;
+    final count = widget.notes.length;
 
-    return FadeTransition(
-      opacity: CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 32),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.danger.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.danger.withValues(alpha: 0.6), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.danger.withValues(alpha: 0.25),
-              blurRadius: 30,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            const Icon(Icons.bolt_rounded, color: AppColors.dangerBright, size: 30),
-            const SizedBox(height: 10),
-            Text(
-              'REMINDER',
-              style: TextStyle(
-                color: AppColors.dangerBright,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 3,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOutQuart,
+      switchOutCurve: Curves.easeOutQuart,
+      child: note == null
+          ? GlassGroup(
+              key: const ValueKey('idle'),
+              children: [
+                GlassRow(
+                  leading: RowIcon(CupertinoIcons.bolt_fill, color: p.warning),
+                  title: Text('$count reminder${count == 1 ? '' : 's'} armed'),
+                  subtitle: const Text('Pinned notes resurface at their interval'),
+                  showChevron: widget.onOpen != null,
+                  onTap: widget.onOpen,
+                ),
+              ],
+            )
+          : Semantics(
+              key: ValueKey(note.id),
+              liveRegion: true,
+              child: GlassPanel(
+                tint: p.warning,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RowIcon(CupertinoIcons.bolt_fill, color: p.warning, size: 34),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Reminder',
+                            style: AppText.footnote.copyWith(
+                              color: p.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(note.content, style: AppText.headline.copyWith(color: p.label)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _currentNote!.content,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

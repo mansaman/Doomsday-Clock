@@ -1,86 +1,82 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../models/alarm.dart';
 import '../services/app_state.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 
-class AlarmsScreen extends StatefulWidget {
+class AlarmsScreen extends StatelessWidget {
   const AlarmsScreen({super.key});
 
-  @override
-  State<AlarmsScreen> createState() => _AlarmsScreenState();
-}
-
-class _AlarmsScreenState extends State<AlarmsScreen> {
   static const _presets = <(String, int)>[
-    ('5 MIN', 5),
-    ('15 MIN', 15),
-    ('30 MIN', 30),
-    ('1 HOUR', 60),
+    ('5m', 5),
+    ('15m', 15),
+    ('30m', 30),
+    ('1h', 60),
   ];
 
-  void _addCustomAlarm() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        TimeOfDay selected = TimeOfDay.now();
-        final messageCtrl = TextEditingController();
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('CUSTOM ALARM'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.schedule, color: AppColors.dangerBright),
-                    title: Text(
-                      selected.format(context),
-                      style: const TextStyle(fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary),
-                    ),
-                    trailing: const Icon(Icons.edit, color: AppColors.textMuted),
-                    onTap: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: selected,
-                      );
-                      if (picked != null) setState(() => selected = picked);
-                    },
+  void _addIn(BuildContext context, int minutes) {
+    HapticFeedback.mediumImpact();
+    final at = DateTime.now().add(Duration(minutes: minutes));
+    context.read<AppState>().addAlarm(hour: at.hour, minute: at.minute, message: 'Back to it');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Alarm set for ${minutes >= 60 ? '1 hour' : '$minutes minutes'} from now')),
+    );
+  }
+
+  void _addCustom(BuildContext context) {
+    var selected = DateTime.now();
+    final messageCtrl = TextEditingController();
+
+    showGlassSheet<void>(
+      context,
+      title: 'New alarm',
+      builder: (sheetContext) {
+        final p = sheetContext.palette;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 180,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: p.brightness,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: AppText.title3.copyWith(color: p.label),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: messageCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Alarm message (e.g. GET BACK TO WORK)',
-                      prefixIcon: Icon(Icons.message_outlined,
-                          color: AppColors.textMuted, size: 20),
-                    ),
-                  ),
-                ],
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: selected,
+                  onDateTimeChanged: (v) => selected = v,
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<AppState>().addAlarm(
-                          hour: selected.hour,
-                          minute: selected.minute,
-                          message: messageCtrl.text.trim().isEmpty
-                              ? 'GET BACK TO WORK'
-                              : messageCtrl.text.trim().toUpperCase(),
-                        );
-                    Navigator.pop(context);
-                  },
-                  child: const Text('ADD'),
-                ),
-              ],
-            );
-          },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: messageCtrl,
+              style: AppText.body.copyWith(color: p.label),
+              decoration: const InputDecoration(hintText: 'Label (optional)'),
+            ),
+            const SizedBox(height: 16),
+            GlassButton(
+              label: 'Add alarm',
+              expand: true,
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                final msg = messageCtrl.text.trim();
+                context.read<AppState>().addAlarm(
+                      hour: selected.hour,
+                      minute: selected.minute,
+                      message: msg.isEmpty ? 'Back to it' : msg,
+                    );
+                Navigator.pop(sheetContext);
+              },
+            ),
+          ],
         );
       },
     );
@@ -88,161 +84,98 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final appState = context.watch<AppState>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('ALARMS')),
-      body: Column(
-        children: [
-          _buildPresets(),
-          const Divider(color: AppColors.border, height: 1),
-          Expanded(
-            child: appState.alarms.isEmpty
-                ? const _EmptyAlarms()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: appState.alarms.length,
-                    itemBuilder: (context, index) {
-                      final alarm = appState.alarms[index];
-                      return _AlarmCard(
-                        alarm: alarm,
-                        onToggle: () => appState.toggleAlarm(alarm.id),
-                        onDelete: () => appState.removeAlarm(alarm.id),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addCustomAlarm,
-        child: const Icon(Icons.add_alarm),
-      ),
-    );
-  }
 
-  Widget _buildPresets() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'QUICK ALARMS',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
-            ),
+    return GlassScaffold(
+      title: 'Alarms',
+      actions: [
+        GlassIconButton(
+          icon: CupertinoIcons.plus,
+          tooltip: 'New alarm',
+          onPressed: () => _addCustom(context),
+        ),
+      ],
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            'Quick alarm from now',
+            style: AppText.footnote.copyWith(color: p.secondaryLabel, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: _presets.map((preset) {
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: OutlinedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Alarm in ${preset.$2} minutes. Stay on task.'),
-                        ),
-                      );
-                      // TODO: hook into actual timer/notification
-                    },
-                    child: Text(preset.$1),
-                  ),
+        ),
+        Row(
+          children: [
+            for (var i = 0; i < _presets.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: GlassButton(
+                  label: _presets[i].$1,
+                  style: GlassButtonStyle.tinted,
+                  expand: true,
+                  onPressed: () => _addIn(context, _presets[i].$2),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 28),
+        if (appState.alarms.isEmpty)
+          const EmptyState(
+            icon: CupertinoIcons.alarm,
+            title: 'No alarms',
+            message: 'Use a quick alarm to pull yourself back in a few minutes, or tap + to pick a time.',
+          )
+        else
+          GlassGroup(
+            children: [for (final a in appState.alarms) _AlarmRow(alarm: a)],
           ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _AlarmCard extends StatelessWidget {
-  const _AlarmCard({
-    required this.alarm,
-    required this.onToggle,
-    required this.onDelete,
-  });
+class _AlarmRow extends StatelessWidget {
+  const _AlarmRow({required this.alarm});
 
-  final dynamic alarm;
-  final VoidCallback onToggle;
-  final VoidCallback onDelete;
+  final AppAlarm alarm;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: alarm.isActive ? AppColors.danger.withValues(alpha: 0.5) : AppColors.border,
+    final p = context.palette;
+    final appState = context.read<AppState>();
+    final color = alarm.isActive ? p.label : p.tertiaryLabel;
+
+    return GlassRow(
+      title: Text(
+        alarm.timeLabel,
+        style: TextStyle(
+          fontSize: 34,
+          fontWeight: FontWeight.w300,
+          letterSpacing: -1,
+          color: color,
+          fontFeatures: AppText.tabular,
         ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            alarm.isActive ? Icons.notifications_active : Icons.notifications_off,
-            color: alarm.isActive ? AppColors.dangerBright : AppColors.textMuted,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  alarm.timeLabel,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  alarm.message,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: alarm.isActive, onChanged: (_) => onToggle()),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyAlarms extends StatelessWidget {
-  const _EmptyAlarms();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
+      subtitle: Text(alarm.message),
+      trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.alarm_add, color: AppColors.textMuted, size: 48),
-          const SizedBox(height: 12),
-          Text(
-            'No alarms set.\nSet quick alarms to blast yourself\nback into focus.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 13,
-              height: 1.5,
-            ),
+          CupertinoSwitch(
+            value: alarm.isActive,
+            activeTrackColor: p.accent,
+            onChanged: (_) {
+              HapticFeedback.selectionClick();
+              appState.toggleAlarm(alarm.id);
+            },
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              appState.removeAlarm(alarm.id);
+            },
+            icon: Icon(CupertinoIcons.trash, size: 20, color: p.tertiaryLabel),
           ),
         ],
       ),

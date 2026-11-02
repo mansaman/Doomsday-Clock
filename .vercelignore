@@ -1,0 +1,10 @@
+build/
+dist/
+.playwright-mcp/
+.dart_tool/
+android/
+ios/
+macos/
+linux/
+windows/
+*.iml

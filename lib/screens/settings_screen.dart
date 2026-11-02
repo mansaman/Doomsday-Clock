@@ -1,19 +1,19 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../models/user_profile.dart';
 import '../services/app_state.dart';
 import '../services/local_storage_service.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final appState = context.watch<AppState>();
     final calc = appState.lifeCalculator;
     final profile = appState.profile;
@@ -22,282 +22,255 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return const Scaffold(body: SizedBox.shrink());
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('SETTINGS')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _SectionTitle('YOUR DOOM'),
-          _SettingsCard(
-            children: [
-              _Row(
-                label: 'Date of birth',
-                value: '${profile.dateOfBirth.day}/${profile.dateOfBirth.month}/${profile.dateOfBirth.year}',
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: profile.dateOfBirth,
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    appState.updateProfile(profile.copyWith(
-                      dateOfBirth: DateTime(picked.year, picked.month, picked.day),
-                    ));
-                  }
-                },
+    Text value(String v, {Color? color}) => Text(
+          v,
+          style: TextStyle(color: color ?? p.secondaryLabel, fontFeatures: AppText.tabular),
+        );
+
+    return GlassScaffold(
+      title: 'Settings',
+      children: [
+        GlassGroup(
+          header: 'Appearance',
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SegmentedPicker<int>(
+                value: appState.themeMode,
+                options: const {0: 'Dark', 1: 'Light', 2: 'Black'},
+                onChanged: appState.setThemeMode,
               ),
-              const Divider(color: AppColors.border, height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Life expectancy'),
-                subtitle: Text(
-                  '${profile.lifeExpectancyYears} years',
-                  style: const TextStyle(color: AppColors.textMuted),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
-                onTap: () => _editExpectancy(appState, profile),
-              ),
-              const Divider(color: AppColors.border, height: 1),
-              const _Row(
-                label: 'Days remaining',
-                value: '',
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Days remaining'),
-                trailing: Text(
-                  calc.daysLeft,
-                  style: const TextStyle(
-                    color: AppColors.dangerBright,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SectionTitle('REALITY CHECK'),
-          _SettingsCard(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.percent, color: AppColors.dangerBright),
-                title: const Text('Life lived'),
-                trailing: Text(
-                  '${(calc.percentageLived * 100).toStringAsFixed(2)}%',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GlassGroup(
+          header: 'Lifespan',
+          footer: 'An estimate, not a promise. Set it to whatever feels honest.',
+          children: [
+            GlassRow(
+              leading: RowIcon(CupertinoIcons.gift, color: p.accent),
+              title: const Text('Date of birth'),
+              trailing: value(DateFormat('d MMM y').format(profile.dateOfBirth)),
+              showChevron: true,
+              onTap: () => _editBirthday(context, appState, profile),
+            ),
+            GlassRow(
+              leading: RowIcon(CupertinoIcons.heart, color: p.danger),
+              title: const Text('Life expectancy'),
+              trailing: value('${profile.lifeExpectancyYears} years'),
+              showChevron: true,
+              onTap: () => _editExpectancy(context, appState, profile),
+            ),
+            GlassRow(
+              leading: RowIcon(CupertinoIcons.hourglass, color: p.warning),
+              title: const Text('Days remaining'),
+              trailing: value(NumberFormat.decimalPattern().format(int.parse(calc.daysLeft)), color: p.label),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GlassGroup(
+          header: 'Life so far',
+          children: [
+            GlassRow(
+              title: const Text('Lived'),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
                     value: calc.percentageLived,
-                    minHeight: 8,
-                    backgroundColor: AppColors.cardHighlight,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.danger),
+                    minHeight: 6,
+                    backgroundColor: p.fieldFill,
+                    valueColor: AlwaysStoppedAnimation(p.accent),
                   ),
                 ),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.hourglass_empty, color: AppColors.warning),
-                title: const Text('Time already spent'),
-                trailing: Text(
-                  _formatDuration(calc.lived),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SectionTitle('TIME WALLET'),
-          _SettingsCard(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.account_balance_wallet,
-                    color: AppColors.warning),
-                title: const Text('Free time today'),
-                trailing: Text(
-                  _formatDuration(calc.freeTimeToday),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Divider(color: AppColors.border, height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.lock_clock, color: AppColors.dangerBright),
-                title: const Text('Lost to obligations'),
-                trailing: Text(
-                  '${calc.totalAllocatedHoursPerDay.toStringAsFixed(calc.totalAllocatedHoursPerDay % 1 == 0 ? 0 : 1)}h/day',
-                  style: const TextStyle(
-                    color: AppColors.dangerBright,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Divider(color: AppColors.border, height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.bolt, color: AppColors.warning),
-                title: const Text('Free time remaining'),
-                trailing: Text(
-                  _formatDuration(calc.freeTimeRemaining),
-                  style: TextStyle(
-                    color: calc.isFreeTimeExhausted
-                        ? AppColors.dangerBright
-                        : AppColors.success,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SectionTitle('DATA'),
-          _SettingsCard(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.cloud_off, color: AppColors.textMuted),
-                title: const Text('Storage'),
-                subtitle: const Text('Data is stored locally on this device'),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.sync_disabled, color: AppColors.textMuted),
-                title: const Text('Cloud sync'),
-                subtitle: const Text('Coming soon'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('RESET EVERYTHING'),
-                  content: const Text(
-                    'This permanently deletes your profile and starts fresh.\nThe clock does not care either way.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('CANCEL'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('RESET'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                await LocalStorage.clearProfile();
-                if (context.mounted) {
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                }
-              }
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.dangerBright,
-              side: const BorderSide(color: AppColors.danger, width: 1.5),
+              trailing: value('${(calc.percentageLived * 100).toStringAsFixed(1)}%', color: p.label),
             ),
-            icon: const Icon(Icons.delete_forever),
-            label: const Text('RESET EVERYTHING'),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              'DOOMSDAY CLOCK v1.0',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 11,
-                letterSpacing: 2,
+            GlassRow(
+              title: const Text('Time already spent'),
+              trailing: value(_formatSpan(calc.lived)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GlassGroup(
+          header: 'Today',
+          children: [
+            GlassRow(
+              title: const Text('Free time today'),
+              trailing: value(formatHm(calc.freeTimeToday)),
+            ),
+            GlassRow(
+              title: const Text('Committed'),
+              trailing: value('${formatHours(calc.totalAllocatedHoursPerDay)} a day'),
+            ),
+            GlassRow(
+              title: const Text('Free time left'),
+              trailing: value(
+                formatHm(calc.freeTimeRemaining),
+                color: calc.isFreeTimeExhausted ? p.danger : p.success,
               ),
             ),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GlassGroup(
+          header: 'Streaks',
+          children: [
+            GlassRow(
+              leading: RowIcon(CupertinoIcons.flame_fill, color: p.warning),
+              title: const Text('Current'),
+              trailing: value('${appState.currentStreak} days'),
+            ),
+            GlassRow(
+              leading: RowIcon(CupertinoIcons.rosette, color: p.warning),
+              title: const Text('Longest'),
+              trailing: value('${appState.longestStreak} days'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        GlassGroup(
+          header: 'Data',
+          footer: 'Everything is stored on this device. Cloud sync is coming.',
+          children: [
+            GlassRow(
+              title: Text('Reset everything', style: TextStyle(color: p.danger)),
+              onTap: () => _confirmReset(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Center(
+          child: Text('Doomsday Clock 2.0', style: AppText.caption.copyWith(color: p.tertiaryLabel)),
+        ),
+      ],
     );
   }
 
-  void _editExpectancy(AppState appState, profile) {
-    int current = profile.lifeExpectancyYears;
-    showDialog<void>(
+  Future<void> _confirmReset(BuildContext context) async {
+    final confirmed = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('LIFE EXPECTANCY'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$current YEARS',
-                    style: const TextStyle(
-                      color: AppColors.dangerBright,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                    ),
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Reset everything?'),
+        content: const Text('This deletes your profile and starts onboarding again.'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await LocalStorage.clearProfile();
+      if (context.mounted) {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    }
+  }
+
+  void _editBirthday(BuildContext context, AppState appState, UserProfile profile) {
+    var picked = profile.dateOfBirth;
+    showGlassSheet<void>(
+      context,
+      title: 'Date of birth',
+      builder: (sheetContext) {
+        final p = sheetContext.palette;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 200,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: p.brightness,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: AppText.title3.copyWith(color: p.label),
                   ),
-                  Slider(
-                    value: current.toDouble(),
-                    min: 50,
-                    max: 100,
-                    divisions: 50,
-                    label: '$current',
-                    onChanged: (v) => setState(() => current = v.round()),
-                  ),
-                  const Text(
-                    'Warning: lowering this makes your doom\nmore dramatic. Raising it is denial.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
-                  ),
-                ],
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: profile.dateOfBirth,
+                  minimumDate: DateTime(1900),
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (v) => picked = v,
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    appState.updateProfile(profile.copyWith(lifeExpectancyYears: current));
-                    Navigator.pop(context);
-                  },
-                  child: const Text('SAVE'),
-                ),
-              ],
-            );
-          },
+            ),
+            const SizedBox(height: 16),
+            GlassButton(
+              label: 'Save',
+              expand: true,
+              onPressed: () {
+                appState.updateProfile(profile.copyWith(
+                  dateOfBirth: DateTime(picked.year, picked.month, picked.day),
+                ));
+                Navigator.pop(sheetContext);
+              },
+            ),
+          ],
         );
       },
     );
   }
 
-  String _formatDuration(Duration d) {
+  void _editExpectancy(BuildContext context, AppState appState, UserProfile profile) {
+    var current = profile.lifeExpectancyYears;
+    showGlassSheet<void>(
+      context,
+      title: 'Life expectancy',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          final p = sheetContext.palette;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Text(
+                  '$current years',
+                  style: AppText.largeTitle.copyWith(
+                    color: p.label,
+                    fontWeight: FontWeight.w300,
+                    fontFeatures: AppText.tabular,
+                  ),
+                ),
+              ),
+              Slider(
+                value: current.toDouble(),
+                min: 50,
+                max: 100,
+                divisions: 50,
+                label: '$current',
+                onChanged: (v) => setSheet(() => current = v.round()),
+              ),
+              const SizedBox(height: 16),
+              GlassButton(
+                label: 'Save',
+                expand: true,
+                onPressed: () {
+                  appState.updateProfile(profile.copyWith(lifeExpectancyYears: current));
+                  Navigator.pop(sheetContext);
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatSpan(Duration d) {
     final totalDays = d.inDays;
     final years = totalDays ~/ 365;
     final months = (totalDays % 365) ~/ 30;
@@ -308,67 +281,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (days > 0) '${days}d',
     ];
     return parts.isEmpty ? '0d' : parts.join(' ');
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: AppColors.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 2,
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value, this.onTap});
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      trailing: value.isEmpty
-          ? null
-          : Text(value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              )),
-      onTap: onTap,
-    );
   }
 }

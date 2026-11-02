@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import 'glass.dart';
 
-/// A horizontal row of selectable chips to pick a flash interval (in minutes).
+/// Segmented control to pick a flash interval (in minutes).
 /// Null value means no flashing.
 class FlashIntervalPicker extends StatelessWidget {
   const FlashIntervalPicker({
@@ -13,40 +13,13 @@ class FlashIntervalPicker extends StatelessWidget {
   final int? value;
   final ValueChanged<int?> onChanged;
 
-  static const _options = <int?>[null, 5, 15, 30, 60];
-
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: _options.map((option) {
-        final selected = value == option;
-        final label = option == null ? 'OFF' : '${option}m';
-        return Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: ChoiceChip(
-            label: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            selected: selected,
-            onSelected: (_) => onChanged(option),
-            selectedColor: AppColors.danger,
-            backgroundColor: AppColors.cardHighlight,
-            showCheckmark: false,
-            side: BorderSide(
-              color: selected ? AppColors.danger : AppColors.border,
-            ),
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }).toList(),
+    // Segmented controls need non-null keys; 0 stands in for "off".
+    return SegmentedPicker<int>(
+      value: value ?? 0,
+      options: const {0: 'Off', 5: '5m', 15: '15m', 30: '30m', 60: '1h'},
+      onChanged: (v) => onChanged(v == 0 ? null : v),
     );
   }
 }

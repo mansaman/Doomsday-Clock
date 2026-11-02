@@ -1,380 +1,288 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/time_allocation.dart';
 import '../services/app_state.dart';
-import '../theme/app_colors.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 
-class AllocationsScreen extends StatefulWidget {
+class AllocationsScreen extends StatelessWidget {
   const AllocationsScreen({super.key});
 
-  @override
-  State<AllocationsScreen> createState() => _AllocationsScreenState();
-}
+  static const _icons = ['S', 'J', 'C', 'R', 'E', 'M', 'W', 'H', 'G', 'P'];
 
-class _AllocationsScreenState extends State<AllocationsScreen> {
-  static const _icons = ['😴', '💼', '🚗', '📚', '🍳', '💪', '🧘', '📱', '🎮', '📺'];
+  void _openEditor(BuildContext context, {TimeAllocation? existing}) {
+    final appState = context.read<AppState>();
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    var hours = existing?.hoursPerDay ?? 2.0;
+    var icon = existing?.icon ?? _icons.first;
 
-  void _addAllocation() {
-    final nameCtrl = TextEditingController();
-    double hours = 2;
-    String icon = '⏳';
-
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('ADD LIFE DEBT'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
+    showGlassSheet<void>(
+      context,
+      title: existing == null ? 'New obligation' : 'Edit obligation',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          final p = sheetContext.palette;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: existing == null,
+                style: AppText.body.copyWith(color: p.label),
+                decoration: const InputDecoration(hintText: 'Sleep, work, commute, gym'),
+              ),
+              const SizedBox(height: 20),
+              Row(
                 children: [
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. Gym, Gaming, Meditation',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  Text('Per day', style: AppText.subhead.copyWith(color: p.secondaryLabel)),
+                  const Spacer(),
                   Text(
-                    '${hours.toStringAsFixed(hours % 1 == 0 ? 0 : 1)} hours/day',
-                    style: const TextStyle(
-                      color: AppColors.dangerBright,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Slider(
-                    value: hours,
-                    min: 0.5,
-                    max: 12,
-                    divisions: 46,
-                    label: '${hours.toStringAsFixed(1)}h',
-                    onChanged: (v) => setState(() => hours = v),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: _icons.map((i) {
-                      final selected = i == icon;
-                      return ChoiceChip(
-                        label: Text(i, style: const TextStyle(fontSize: 20)),
-                        selected: selected,
-                        onSelected: (_) => setState(() => icon = i),
-                        selectedColor: AppColors.danger,
-                        backgroundColor: AppColors.cardHighlight,
-                        showCheckmark: false,
-                      );
-                    }).toList(),
+                    formatHours(hours),
+                    style: AppText.title3.copyWith(color: p.label, fontFeatures: AppText.tabular),
                   ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final name = nameCtrl.text.trim().isEmpty
-                        ? 'Allocation'
-                        : nameCtrl.text.trim();
-                    context.read<AppState>().addAllocation(
-                          name: name,
-                          hoursPerDay: hours,
-                          icon: icon,
-                        );
-                    Navigator.pop(context);
-                  },
-                  child: const Text('ADD'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
-    final total = appState.totalAllocatedHoursPerDay;
-    final remainingFree = 24 - total;
-    final overBudget = remainingFree < 0;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('LIFE ALLOCATIONS')),
-      body: Column(
-        children: [
-          _buildSummary(total, remainingFree, overBudget),
-          const Divider(color: AppColors.border, height: 1),
-          Expanded(
-            child: appState.allocations.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No allocations. Everything is free time.\nIs that really true?',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: appState.allocations.length,
-                    itemBuilder: (context, index) {
-                      final allocation = appState.allocations[index];
-                      return _AllocationCard(
-                        allocation: allocation,
-                        onToggle: () => appState.updateAllocation(
-                          allocation.copyWith(isActive: !allocation.isActive),
+              Slider(
+                value: hours,
+                min: 0.5,
+                max: 12,
+                divisions: 23,
+                label: formatHours(hours),
+                onChanged: (v) => setSheet(() => hours = v),
+              ),
+              const SizedBox(height: 4),
+              Text('Badge', style: AppText.subhead.copyWith(color: p.secondaryLabel)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final i in _icons)
+                    Semantics(
+                      button: true,
+                      selected: i == icon,
+                      label: 'Badge $i',
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setSheet(() => icon = i);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: i == icon ? p.accent : p.fieldFill,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Text(
+                            i,
+                            style: AppText.headline.copyWith(
+                              color: i == icon ? p.onAccent : p.label,
+                            ),
+                          ),
                         ),
-                        onDelete: () => appState.removeAllocation(allocation.id),
-                        onEdit: () => _editAllocation(appState, allocation),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addAllocation,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildSummary(double total, double free, bool overBudget) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: overBudget ? AppColors.danger : AppColors.border,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _SummaryStat(
-                  label: 'OBLIGATIONS',
-                  value: '${total.toStringAsFixed(total % 1 == 0 ? 0 : 1)}h',
-                ),
-                _SummaryStat(
-                  label: 'FREE / DAY',
-                  value: '${free.toStringAsFixed(free % 1 == 0 ? 0 : 1)}h',
-                  valueColor: overBudget ? AppColors.dangerBright : AppColors.success,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (overBudget)
-              Text(
-                'OVERSPENT! Your obligations exceed 24 hours.\nThis is physically impossible. Cut something.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.dangerBright,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            else
-              Text(
-                'These obligations silently eat your free time\nevery single day. The real cost of living.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _editAllocation(AppState appState, TimeAllocation allocation) {
-    final nameCtrl = TextEditingController(text: allocation.name);
-    var hours = allocation.hoursPerDay;
-    var icon = allocation.icon;
-
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('EDIT'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(hintText: 'Name'),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${hours.toStringAsFixed(hours % 1 == 0 ? 0 : 1)} hours/day',
-                    style: const TextStyle(
-                      color: AppColors.dangerBright,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  Slider(
-                    value: hours,
-                    min: 0.5,
-                    max: 12,
-                    divisions: 46,
-                    label: '${hours.toStringAsFixed(1)}h',
-                    onChanged: (v) => setState(() => hours = v),
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: _icons.map((i) {
-                      final selected = i == icon;
-                      return ChoiceChip(
-                        label: Text(i, style: const TextStyle(fontSize: 20)),
-                        selected: selected,
-                        onSelected: (_) => setState(() => icon = i),
-                        selectedColor: AppColors.danger,
-                        backgroundColor: AppColors.cardHighlight,
-                        showCheckmark: false,
-                      );
-                    }).toList(),
-                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    appState.updateAllocation(TimeAllocation(
-                      id: allocation.id,
-                      name: nameCtrl.text.trim().isEmpty
-                          ? allocation.name
-                          : nameCtrl.text.trim(),
+              const SizedBox(height: 20),
+              GlassButton(
+                label: existing == null ? 'Add' : 'Save',
+                expand: true,
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  final name = nameCtrl.text.trim();
+                  if (existing == null) {
+                    appState.addAllocation(
+                      name: name.isEmpty ? 'Obligation' : name,
                       hoursPerDay: hours,
                       icon: icon,
-                      isActive: allocation.isActive,
+                    );
+                  } else {
+                    appState.updateAllocation(TimeAllocation(
+                      id: existing.id,
+                      name: name.isEmpty ? existing.name : name,
+                      hoursPerDay: hours,
+                      icon: icon,
+                      isActive: existing.isActive,
                     ));
-                    Navigator.pop(context);
-                  },
-                  child: const Text('SAVE'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                  }
+                  Navigator.pop(sheetContext);
+                },
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
-}
-
-class _AllocationCard extends StatelessWidget {
-  const _AllocationCard({
-    required this.allocation,
-    required this.onToggle,
-    required this.onDelete,
-    required this.onEdit,
-  });
-
-  final TimeAllocation allocation;
-  final VoidCallback onToggle;
-  final VoidCallback onDelete;
-  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: allocation.isActive ? AppColors.border : Colors.transparent,
+    final p = context.palette;
+    final appState = context.watch<AppState>();
+    final total = appState.totalAllocatedHoursPerDay;
+    final free = 24 - total;
+    final over = free < 0;
+
+    return GlassScaffold(
+      title: 'Time wallet',
+      subtitle: const Text('What every day costs before it starts'),
+      actions: [
+        GlassIconButton(
+          icon: CupertinoIcons.plus,
+          tooltip: 'New obligation',
+          onPressed: () => _openEditor(context),
         ),
-      ),
-      child: Row(
-        children: [
-          Text(allocation.icon, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  allocation.name,
-                  style: TextStyle(
-                    color: allocation.isActive
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    decoration: allocation.isActive ? null : TextDecoration.lineThrough,
+      ],
+      children: [
+        GlassPanel(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: _Stat(label: 'Committed', value: formatHours(total), color: p.warning)),
+                  Expanded(
+                    child: _Stat(
+                      label: 'Yours',
+                      value: formatHours(free < 0 ? 0 : free),
+                      color: over ? p.danger : p.accent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  height: 8,
+                  child: Row(
+                    children: [
+                      if (total > 0)
+                        Expanded(
+                          flex: (total.clamp(0, 24) * 10).round().clamp(1, 240),
+                          child: ColoredBox(color: over ? p.danger : p.warning),
+                        ),
+                      if (free > 0)
+                        Expanded(
+                          flex: (free * 10).round().clamp(1, 240),
+                          child: ColoredBox(color: p.accent),
+                        ),
+                    ],
                   ),
                 ),
-                Text(
-                  "${allocation.hoursPerDay.toStringAsFixed(allocation.hoursPerDay % 1 == 0 ? 0 : 1)}h of your life, daily",
-                  style: TextStyle(
-                    color: allocation.isActive ? AppColors.warning : AppColors.textMuted,
-                    fontSize: 12,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                over
+                    ? 'These add up to more than 24 hours. Trim one to balance the day.'
+                    : 'Out of 24 hours. Turn an obligation off to see what you would get back.',
+                style: AppText.footnote.copyWith(color: over ? p.danger : p.secondaryLabel),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
+        if (appState.allocations.isEmpty)
+          const EmptyState(
+            icon: CupertinoIcons.creditcard,
+            title: 'No obligations yet',
+            message: 'Add sleep, work and commute so your free time is honest.',
+          )
+        else
+          GlassGroup(
+            header: 'Obligations',
+            children: [
+              for (final a in appState.allocations)
+                GlassRow(
+                  leading: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (a.isActive ? p.warning : p.tertiaryLabel).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      a.icon,
+                      style: AppText.headline.copyWith(color: a.isActive ? p.warning : p.tertiaryLabel),
+                    ),
+                  ),
+                  title: Text(
+                    a.name,
+                    style: a.isActive ? null : TextStyle(color: p.tertiaryLabel),
+                  ),
+                  subtitle: Text('${formatHours(a.hoursPerDay)} a day'),
+                  onTap: () => _openEditor(context, existing: a),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CupertinoSwitch(
+                        value: a.isActive,
+                        activeTrackColor: p.accent,
+                        onChanged: (_) {
+                          HapticFeedback.selectionClick();
+                          appState.updateAllocation(a.copyWith(isActive: !a.isActive));
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          appState.removeAllocation(a.id);
+                        },
+                        icon: Icon(CupertinoIcons.trash, size: 20, color: p.tertiaryLabel),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, color: AppColors.textMuted),
-          ),
-          Switch(value: allocation.isActive, onChanged: (_) => onToggle()),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _SummaryStat extends StatelessWidget {
-  const _SummaryStat({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value, required this.color});
 
   final String label;
   final String value;
-  final Color? valueColor;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: AppText.footnote.copyWith(color: p.secondaryLabel)),
+          ],
+        ),
+        const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(
-            color: valueColor ?? AppColors.textPrimary,
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+          style: AppText.largeTitle.copyWith(
+            color: p.label,
+            fontWeight: FontWeight.w300,
+            fontFeatures: AppText.tabular,
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 10, letterSpacing: 1),
         ),
       ],
     );

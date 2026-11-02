@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import 'package:flutter/services.dart';
+import '../theme/palette.dart';
+import '../widgets/glass.dart';
 
 class TimerStopwatchScreen extends StatefulWidget {
   const TimerStopwatchScreen({super.key});
@@ -9,47 +12,64 @@ class TimerStopwatchScreen extends StatefulWidget {
   State<TimerStopwatchScreen> createState() => _TimerStopwatchScreenState();
 }
 
-class _TimerStopwatchScreenState extends State<TimerStopwatchScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _TimerStopwatchScreenState extends State<TimerStopwatchScreen> {
+  int _mode = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TIMER & STOPWATCH'),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.danger,
-          labelColor: AppColors.dangerBright,
-          unselectedLabelColor: AppColors.textMuted,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 2),
-          tabs: const [
-            Tab(text: 'TIMER'),
-            Tab(text: 'STOPWATCH'),
-          ],
+    return GlassScaffold(
+      title: _mode == 0 ? 'Timer' : 'Stopwatch',
+      children: [
+        SegmentedPicker<int>(
+          value: _mode,
+          options: const {0: 'Timer', 1: 'Stopwatch'},
+          onChanged: (v) => setState(() => _mode = v),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _CountdownTimer(),
-          _Stopwatch(),
+        const SizedBox(height: 20),
+        // IndexedStack keeps a running timer alive while the stopwatch is shown.
+        IndexedStack(
+          index: _mode,
+          children: const [_CountdownTimer(), _Stopwatch()],
+        ),
+      ],
+    );
+  }
+}
+
+class _BigReadout extends StatelessWidget {
+  const _BigReadout({required this.text, required this.caption, this.color});
+
+  final String text;
+  final String caption;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return GlassPanel(
+      radius: 28,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutQuart,
+              style: TextStyle(
+                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                fontSize: 88,
+                fontWeight: FontWeight.w200,
+                letterSpacing: -3,
+                height: 1.05,
+                color: color ?? p.label,
+                fontFeatures: AppText.tabular,
+              ),
+              child: Text(text),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(caption, style: AppText.subhead.copyWith(color: color ?? p.secondaryLabel)),
         ],
       ),
     );
@@ -65,16 +85,11 @@ class _CountdownTimer extends StatefulWidget {
 
 class _CountdownTimerState extends State<_CountdownTimer> {
   Timer? _timer;
+  int _presetMinutes = 25;
   Duration _remaining = const Duration(minutes: 25);
   bool _running = false;
 
-  static const _presets = <(String, int)>[
-    ('5', 5),
-    ('15', 15),
-    ('25', 25),
-    ('45', 45),
-    ('60', 60),
-  ];
+  static const _presets = {5: '5m', 15: '15m', 25: '25m', 45: '45m', 60: '1h'};
 
   @override
   void dispose() {
@@ -83,11 +98,13 @@ class _CountdownTimerState extends State<_CountdownTimer> {
   }
 
   void _start() {
+    HapticFeedback.mediumImpact();
+    if (_remaining == Duration.zero) _remaining = Duration(minutes: _presetMinutes);
     setState(() => _running = true);
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remaining.inSeconds <= 1) {
-        _stop();
+        _pause(haptic: false);
         _onComplete();
         return;
       }
@@ -95,32 +112,33 @@ class _CountdownTimerState extends State<_CountdownTimer> {
     });
   }
 
-  void _stop() {
+  void _pause({bool haptic = true}) {
+    if (haptic) HapticFeedback.lightImpact();
     _timer?.cancel();
     setState(() => _running = false);
   }
 
   void _reset() {
+    HapticFeedback.lightImpact();
     _timer?.cancel();
     setState(() {
-      _remaining = const Duration(minutes: 25);
+      _remaining = Duration(minutes: _presetMinutes);
       _running = false;
     });
   }
 
   void _onComplete() {
+    HapticFeedback.heavyImpact();
     setState(() => _remaining = Duration.zero);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('TIME IS UP. GET BACK TO WORK.'),
-        backgroundColor: AppColors.danger,
-      ),
+      const SnackBar(content: Text('Time\'s up. Take a breath, then pick the next thing.')),
     );
   }
 
   void _setPreset(int minutes) {
     _timer?.cancel();
     setState(() {
+      _presetMinutes = minutes;
       _remaining = Duration(minutes: minutes);
       _running = false;
     });
@@ -134,80 +152,54 @@ class _CountdownTimerState extends State<_CountdownTimer> {
 
   @override
   Widget build(BuildContext context) {
-    final urgent = _remaining.inMinutes < 5;
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: _presets.map((p) {
-              return ChoiceChip(
-                label: Text('${p.$2}m',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    )),
-                selected: false,
-                onSelected: (_) => _setPreset(p.$2),
-                backgroundColor: AppColors.card,
-                selectedColor: AppColors.danger,
-                showCheckmark: false,
-                side: const BorderSide(color: AppColors.border),
-              );
-            }).toList(),
-          ),
-          const Spacer(),
-          Text(
-            _display,
-            style: TextStyle(
-              color: urgent ? AppColors.dangerBright : AppColors.textPrimary,
-              fontSize: 86,
-              fontWeight: FontWeight.w800,
-              fontFeatures: const [FontFeature.tabularFigures()],
-              shadows: urgent
-                  ? [
-                      Shadow(
-                        color: AppColors.danger.withValues(alpha: 0.5),
-                        blurRadius: 20,
-                      ),
-                    ]
-                  : null,
-            ),
-          ),
-          Text(
-            _running
-                ? (_remaining.inMinutes < 5 ? 'TIME IS BLEEDING OUT' : 'FOCUS. GO.')
-                : (_remaining.inMinutes < 5 && !_running ? 'RESTART. NOW.' : 'READY WHEN YOU ARE'),
-            style: TextStyle(
-              color: urgent ? AppColors.dangerBright : AppColors.textMuted,
-              fontSize: 13,
-              letterSpacing: 2,
-            ),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
+    final p = context.palette;
+    final done = _remaining == Duration.zero;
+    final closing = _running && _remaining.inSeconds <= 60;
+    final caption = done
+        ? 'Done'
+        : _running
+            ? (closing ? 'Final minute' : 'Focus')
+            : 'Ready when you are';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedPicker<int>(
+          value: _presetMinutes,
+          options: _presets,
+          onChanged: _setPreset,
+        ),
+        const SizedBox(height: 16),
+        _BigReadout(
+          text: _display,
+          caption: caption,
+          color: done || closing ? p.warning : null,
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: GlassButton(
+                label: 'Reset',
+                style: GlassButtonStyle.tinted,
+                color: p.secondaryLabel,
+                expand: true,
                 onPressed: _reset,
-                icon: const Icon(Icons.refresh),
-                label: const Text('RESET'),
               ),
-              const SizedBox(width: 20),
-              ElevatedButton.icon(
-                onPressed: _running ? _stop : _start,
-                icon: Icon(_running ? Icons.pause : Icons.play_arrow),
-                label: Text(_running ? 'PAUSE' : 'START'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
-                ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: GlassButton(
+                label: _running ? 'Pause' : 'Start',
+                icon: _running ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                expand: true,
+                onPressed: _running ? _pause : _start,
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -222,7 +214,7 @@ class _Stopwatch extends StatefulWidget {
 class _StopwatchState extends State<_Stopwatch> {
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
-  final List<String> _laps = [];
+  final List<Duration> _laps = [];
 
   @override
   void dispose() {
@@ -232,18 +224,21 @@ class _StopwatchState extends State<_Stopwatch> {
 
   void _toggle() {
     if (_stopwatch.isRunning) {
+      HapticFeedback.lightImpact();
       _stopwatch.stop();
       _timer?.cancel();
     } else {
+      HapticFeedback.mediumImpact();
       _stopwatch.start();
-      _timer = Timer.periodic(const Duration(milliseconds: 10), (_) {
-        setState(() {});
+      _timer = Timer.periodic(const Duration(milliseconds: 30), (_) {
+        if (mounted) setState(() {});
       });
     }
     setState(() {});
   }
 
   void _reset() {
+    HapticFeedback.lightImpact();
     _stopwatch
       ..stop()
       ..reset();
@@ -252,96 +247,70 @@ class _StopwatchState extends State<_Stopwatch> {
   }
 
   void _lap() {
-    setState(() => _laps.insert(0, _format(_stopwatch.elapsed)));
+    HapticFeedback.selectionClick();
+    setState(() => _laps.insert(0, _stopwatch.elapsed));
   }
 
   String _format(Duration d) {
     final m = d.inMinutes.toString().padLeft(2, '0');
     final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    final ms = (d.inMilliseconds % 1000) ~/ 10;
-    final msS = ms.toString().padLeft(2, '0');
-    return '$m:$s.$msS';
+    final cs = ((d.inMilliseconds % 1000) ~/ 10).toString().padLeft(2, '0');
+    return '$m:$s.$cs';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          const Spacer(),
-          Text(
-            _format(_stopwatch.elapsed),
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 76,
-              fontWeight: FontWeight.w800,
-              fontFeatures: [FontFeature.tabularFigures()],
+    final p = context.palette;
+    final running = _stopwatch.isRunning;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _BigReadout(
+          text: _format(_stopwatch.elapsed),
+          caption: running ? 'Running' : (_stopwatch.elapsed == Duration.zero ? 'Ready' : 'Paused'),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: GlassButton(
+                label: running ? 'Lap' : 'Reset',
+                style: GlassButtonStyle.tinted,
+                color: p.secondaryLabel,
+                expand: true,
+                onPressed: running ? _lap : (_stopwatch.elapsed == Duration.zero ? null : _reset),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton(
-                onPressed: _reset,
-                child: const Text('RESET'),
-              ),
-              const SizedBox(width: 20),
-              ElevatedButton(
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: GlassButton(
+                label: running ? 'Stop' : 'Start',
+                icon: running ? CupertinoIcons.stop_fill : CupertinoIcons.play_fill,
+                expand: true,
                 onPressed: _toggle,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+          ],
+        ),
+        if (_laps.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          GlassGroup(
+            header: 'Laps',
+            children: [
+              for (var i = 0; i < _laps.length; i++)
+                GlassRow(
+                  title: Text('Lap ${_laps.length - i}'),
+                  trailing: Text(
+                    _format(_laps[i]),
+                    style: TextStyle(color: p.label, fontFeatures: AppText.tabular),
+                  ),
                 ),
-                child: Text(_stopwatch.isRunning ? 'STOP' : 'START'),
-              ),
-              const SizedBox(width: 20),
-              OutlinedButton(
-                onPressed: _stopwatch.isRunning ? _lap : null,
-                child: const Text('LAP'),
-              ),
             ],
           ),
-          const Spacer(),
-          if (_laps.isNotEmpty) ...[
-            const Divider(color: AppColors.border),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _laps.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'LAP ${_laps.length - index}',
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 13,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        Text(
-                          _laps[index],
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            fontFeatures: [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ] else
-            const Spacer(),
         ],
-      ),
+      ],
     );
   }
 }
