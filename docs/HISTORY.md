@@ -4,6 +4,14 @@ Newest first. Every change gets an entry: date, what, why, files. Keep entries f
 
 ---
 
+## 2026-11-02: v2 deployed; landing page live
+
+**What:**
+- App: committed v2 as `68d31e3` and pushed to `github.com/mansaman/Doomsday-Clock` (public, `main`). Deployed to Vercel project `doomsday-clock` → https://doomsday-clock-teal.vercel.app (now v2; it previously served v1 from September). Added `.vercelignore` (excludes build output and native platform folders).
+- Landing: new **private** repo `github.com/mansaman/Doomsday-Clock-Landing`, new Vercel project `doomsday-clock-landing` (Git-connected, so pushes auto-deploy) → https://doomsday-clock-landing.vercel.app. "Open web app" links to the live app. Download links are still empty, so they show "Soon".
+**Why:** The user asked to push the app to GitHub and Vercel, and to put the landing page in a new repo and Vercel project.
+**Note:** Browsers that opened the old app may keep a cached v1 (Flutter service worker) until a hard refresh.
+
 ## 2026-11-02: Windows .exe and landing page
 
 **What:**
