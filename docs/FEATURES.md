@@ -24,12 +24,12 @@ Status: ✅ done · 🟡 partial · ⛔ not started. Requirement IDs refer to [P
 
 | Target | Status | How | Blocker |
 |---|---|---|---|
-| Web app | ✅ builds | `flutter build web --release` → `build/web` | Needs a redeploy to Vercel |
-| Windows .exe | ✅ built | `flutter build windows --release`, zipped to `dist/` | Unsigned: SmartScreen shows "unknown publisher" |
+| Web app | ✅ live | `flutter build web --release` → `build/web`, Vercel → https://doomsday-clock-teal.vercel.app | |
+| Windows .exe | ✅ released | `flutter build windows --release`, zipped to `dist/`, attached to GitHub Release `v2.0.0`; linked from the landing page | Unsigned: SmartScreen shows "unknown publisher" |
 | macOS .dmg | ⛔ | `flutter build macos` + `create-dmg` | Needs a Mac or a GitHub Actions macOS runner; notarization needs an Apple Developer ID ($99/yr) |
 | Android .apk | ⛔ | `flutter build apk --release` | Android SDK not installed on this PC; needs a release keystore |
 | Browser extension | ⛔ | Separate small project (not the Flutter app) | Scope undecided |
-| Landing page | ✅ built | `../doomsday-landing` (static) | Needs its own GitHub repo + Vercel project; fill `LINKS` in `main.js` |
+| Landing page | ✅ live | `../doomsday-landing` (static), https://doomsday-clock-landing.vercel.app | macOS, Android and extension links in `LINKS` still empty ("Soon") |
 
 ## Known gaps
 

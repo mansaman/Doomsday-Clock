@@ -4,6 +4,12 @@ Newest first. Every change gets an entry: date, what, why, files. Keep entries f
 
 ---
 
+## 2026-11-03: Windows download live on the landing page
+
+**What:** Created GitHub Release `v2.0.0` on `mansaman/Doomsday-Clock` with `DoomsdayClock-windows-x64.zip` (12 MB) attached. In the landing repo, `LINKS.windows` now points to `releases/latest/download/DoomsdayClock-windows-x64.zip` and the Windows row reads ".zip, 12 MB" (commit `ad3b9f2`, auto-deployed). Verified: the URL downloads the full 12,047,716 bytes.
+**Why:** The user asked for people to be able to download the exe from the landing page.
+**Note:** The `latest` URL always serves the newest release, so a future release must attach a file with the same name. The exe is unsigned, so SmartScreen warns; the release notes explain "More info, Run anyway".
+
 ## 2026-11-02: v2 deployed; landing page live
 
 **What:**

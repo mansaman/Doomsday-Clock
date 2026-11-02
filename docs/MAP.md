@@ -60,5 +60,5 @@ Where everything lives. Paths are relative to the repo root.
 | [vercel.json](../vercel.json), [vercel-build.sh](../vercel-build.sh) | Vercel deployment (installs Flutter, builds web, serves `build/web`) |
 | `PRODUCT.md`, `DESIGN.md`, `CLAUDE.md`, `docs/` | Documentation |
 | `.playwright-mcp/` | Browser screenshots from verification sessions (scratch; safe to delete; gitignored) |
-| `dist/` | Packaged release artifacts, e.g. `DoomsdayClock-windows-x64.zip` (gitignored) |
+| `dist/` | Packaged release artifacts, e.g. `DoomsdayClock-windows-x64.zip` (gitignored; published via GitHub Releases) |
 | `../doomsday-landing/` | **Separate repo:** the marketing landing page (static). See its README. |
